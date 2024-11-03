@@ -36,7 +36,7 @@ def login_form():
             if check_user(username, password):
                 st.session_state['logged_in'] = True
                 st.session_state['username'] = username
-                st.experimental_rerun()
+                st._rerun()
             else:
                 st.error("❌ Usuario o contraseña incorrectos")
 
@@ -44,7 +44,7 @@ def login_form():
 def logout():
     for key in list(st.session_state.keys()):
         del st.session_state[key]
-    st.experimental_rerun()
+    st._rerun()
 
 # Función para crear un cliente
 def create_client(client_data):
@@ -178,7 +178,7 @@ def client_management():
         submitted = st.form_submit_button("Guardar Cliente")
         if submitted and create_client(client_data):
             st.success("Cliente creado exitosamente!")
-            st.experimental_rerun()
+            st._rerun()
 
 def search_clients(permisionario):
     st.header("Buscar Clientes")
@@ -199,7 +199,7 @@ def search_clients(permisionario):
                         st.write(f"**Estado:** {client.estado}")
                         if st.button("Eliminar", key=f"del_{client.id}") and delete_client(client.id):
                             st.success("Cliente eliminado exitosamente!")
-                            st.experimental_rerun()
+                            st._rerun()
             else:
                 st.info("No se encontraron resultados")
         finally:
