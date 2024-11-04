@@ -82,29 +82,93 @@ def delete_client(client_id):
         st.error(f"Error al eliminar cliente: {str(e)}")
         return False
 
+def update_client_status(client_id, nuevo_estado):
+    db = next(get_db())
+    try:
+        client = db.query(Client).filter(Client.id == client_id).first()
+        if client:
+            client.estado = nuevo_estado
+            db.commit()
+            return True
+        return False
+    except Exception as e:
+        db.rollback()
+        st.error(f"Error al cambiar el estado: {str(e)}")
+        return False
+    finally:
+        db.close()
+
 # Función del dashboard
 def dashboard(permisionario):
     st.header("Dashboard")
+    
+    # Campo de búsqueda para cliente o cédula
+    search_term = st.text_input("Buscar por cliente o cédula")
+    
+    # Obtener todos los clientes asociados al permisionario
     clients = get_clients(permisionario)
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.metric("Total Clientes", len(clients))
-    with col2:
-        activos = len([c for c in clients if c.estado == "ACTIVO"])
-        st.metric("Clientes Activos", activos)
-    with col3:
-        inactivos = len([c for c in clients if c.estado == "INACTIVO"])
-        st.metric("Clientes Inactivos", inactivos)
-    if clients:
-        df = pd.DataFrame([{ 
-            "ID": c.id, 
-            "Nombres": c.nombres, 
-            "Apellidos": c.apellidos, 
-            "Email": c.correo, 
-            "Teléfono": c.telefono, 
-            "Estado": c.estado 
-        } for c in clients])
+
+    # Filtrar clientes según el término de búsqueda
+    filtered_clients = []
+    if search_term:
+        filtered_clients = [c for c in clients if search_term.lower() in c.nombres.lower() or search_term.lower() in c.cedula_ruc.lower()]
+
+    # Mostrar métricas generales si no hay búsqueda activa
+    if not search_term:
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("Total Clientes", len(clients))
+        with col2:
+            activos = len([c for c in clients if c.estado == "ACTIVO"])
+            st.metric("Clientes Activos", activos)
+        with col3:
+            inactivos = len([c for c in clients if c.estado == "INACTIVO"])
+            st.metric("Clientes Inactivos", inactivos)
+        
+        # Preparar datos para el DataFrame
+        data = []
+        for client in clients:
+            data.append({
+                "ID": client.id,
+                "Nombres": client.nombres,
+                "Apellidos": client.apellidos,
+                "Email": client.correo,
+                "Teléfono": client.telefono,
+                "Estado": client.estado
+            })
+        
+        # Crear DataFrame y mostrarlo
+        df = pd.DataFrame(data)
         st.dataframe(df)
+        
+    else:
+        # Mostrar detalles del cliente con acciones solo si se realiza una búsqueda
+        if filtered_clients:
+            for client in filtered_clients:
+                st.write("---")
+                st.write(f"**Cliente:** {client.nombres} {client.apellidos}")
+                st.write(f"**Email:** {client.correo}")
+                st.write(f"**Teléfono:** {client.telefono}")
+                st.write(f"**Estado actual:** {client.estado}")
+
+                # Columnas para botones de acción
+                col1, col2 = st.columns([1, 1])
+                with col1:
+                    # Botón para editar el cliente
+                    if st.button("Editar", key=f"edit_{client.id}"):
+                        st.session_state['cliente_a_editar'] = client.id  # Guardar el ID del cliente en la sesión
+                        st.session_state['navegar_a_gestion'] = True  # Indicador para navegar a Gestión de Clientes
+                        st.rerun()
+
+                with col2:
+                    # Botón para cambiar el estado
+                    nuevo_estado = "INACTIVO" if client.estado == "ACTIVO" else "ACTIVO"
+                    if st.button(f"Cambiar a {nuevo_estado}", key=f"change_state_{client.id}"):
+                        if update_client_status(client.id, nuevo_estado):
+                            st.success(f"Estado cambiado a {nuevo_estado} exitosamente!")
+                            st.rerun()
+        else:
+            st.info("No se encontraron clientes con el criterio de búsqueda")
 
 #Funciones para seleccion de provincia
 def get_provincias(db):
