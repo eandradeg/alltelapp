@@ -98,6 +98,47 @@ def update_client_status(client_id, nuevo_estado):
     finally:
         db.close()
 
+def mostrar_opciones_incidencia(client_id):
+    # Definir las opciones de incidencias
+    opciones_incidencias = {
+        "Reclamos Generales": [
+            "ACTIVACIÓN DEL SERVICIO EN TÉRMINOS DISTINTOS A LO FIJADO EN EL CONTRATO DE PRESTACIÓN DEL SERVICIO",
+            "REACTIVACIÓN DEL SERVICIO EN PLAZOS DISTINTOS A LOS FIJADOS EN EL CONTRATO DE PRESTACIÓN DEL SERVICIO",
+            "INCUMPLIMIENTO DE LAS CLÁUSULAS CONTRACTUALES PACTADAS",
+            "SUSPENSIÓN DEL SERVICIO SIN FUNDAMENTO LEGAL O CONTRACTUAL",
+            "NO TRAMITACIÓN DE SOLICITUD DE TERMINACIÓN DEL SERVICIO"
+        ],
+        "Reparación de Averías": [
+            "INDISPONIBILIDAD DEL SERVICIO",
+            "INTERRUPCIÓN DEL SERVICIO",
+            "DESCONEXIÓN O SUSPENSIÓN ERRÓNEA DEL SERVICIO",
+            "DEGRADACIÓN DEL SERVICIO",
+            "LIMITACIONES Y RESTRICCIONES DE USO DE APLICACIONES O DEL SERVICIO EN GENERAL SIN CONSENTIMIENTO DEL CLIENTE"
+        ],
+        "Otros": [
+            "CAPACIDAD DE CANAL",
+            "NO PROCEDENTES"
+        ]
+    }
+    
+    # Generar la lista de opciones para el selector
+    opciones = ["Selecciona una incidencia"] + [
+        f"{categoria}: {incidencia}"
+        for categoria, incidencias in opciones_incidencias.items()
+        for incidencia in incidencias
+    ]
+    
+    # Selector de incidencias
+    incidencia_seleccionada = st.selectbox("Tipo de Incidencia", opciones, key=f"incidencia_selector_{client_id}")
+    
+    # Confirmar incidencia seleccionada
+    if incidencia_seleccionada != "Selecciona una incidencia":
+        if st.button("Confirmar Incidencia", key=f"confirmar_incidencia_{client_id}"):
+            # Aquí podrías registrar la incidencia en la base de datos
+            st.success(f"Incidencia registrada: {incidencia_seleccionada}")
+
+
+
 # Función del dashboard
 def dashboard(permisionario):
     st.header("Dashboard")
@@ -152,7 +193,8 @@ def dashboard(permisionario):
                 st.write(f"**Estado actual:** {client.estado}")
 
                 # Columnas para botones de acción
-                col1, col2 = st.columns([1, 1])
+                col1, col2, col3 = st.columns([1, 1, 1])
+
                 with col1:
                     # Botón para editar el cliente
                     if st.button("Editar", key=f"edit_{client.id}"):
@@ -167,8 +209,55 @@ def dashboard(permisionario):
                         if update_client_status(client.id, nuevo_estado):
                             st.success(f"Estado cambiado a {nuevo_estado} exitosamente!")
                             st.rerun()
+
+                with col3:
+                    # Botón para registrar una incidencia
+                    if st.button("Incidencia", key=f"incidencia_{client.id}"):
+                        st.session_state['cliente_incidencia'] = client.id
+                        st.session_state['datos_cliente'] = {
+                            "Nombre": client.nombres,
+                            "Apellido": client.apellidos,
+                            "Correo": client.correo,
+                            "Teléfono": client.telefono,
+                            "Estado": client.estado,
+                        }
+                        st.session_state['navegar_a_incidencia'] = True
+                        st.success("Redirigiendo a la sección de incidencias...")
+                        st.rerun()
+        
         else:
             st.info("No se encontraron clientes con el criterio de búsqueda")
+    
+    # Sección de incidencia, si se ha solicitado
+    if st.session_state.get('navegar_a_incidencia', False):
+        st.write("---")
+        st.subheader("Registrar Incidencia")
+
+        # Mostrar los datos del cliente automáticamente
+        datos_cliente = st.session_state.get('datos_cliente', {})
+        for campo, valor in datos_cliente.items():
+            st.write(f"**{campo}:** {valor}")
+
+        # Listado de tipos de incidencias
+        opciones_incidencia = [
+            "INDISPONIBILIDAD DEL SERVICIO",
+            "INTERRUPCIÓN DEL SERVICIO",
+            "DESCONEXIÓN O SUSPENSIÓN ERRÓNEA DEL SERVICIO",
+            "DEGRADACIÓN DEL SERVICIO",
+            "LIMITACIONES Y RESTRICCIONES SIN CONSENTIMIENTO DEL CLIENTE"
+            "ACTIVACIÓN DEL SERVICIO EN TÉRMINOS DISTINTOS A LO FIJADO EN EL CONTRATO",
+            "REACTIVACIÓN DEL SERVICIO EN PLAZOS DISTINTOS A LOS FIJADOS",
+            "INCUMPLIMIENTO DE LAS CLÁUSULAS CONTRACTUALES PACTADAS",
+            "SUSPENSIÓN DEL SERVICIO SIN FUNDAMENTO LEGAL O CONTRACTUAL",
+            "NO TRAMITACIÓN DE SOLICITUD DE TERMINACIÓN DEL SERVICIO",
+            ]
+
+        tipo_incidencia = st.selectbox("Seleccione el tipo de incidencia", opciones_incidencia)
+
+        if st.button("Registrar Incidencia"):
+            # Aquí puedes agregar el código para guardar la incidencia en la hoja correspondiente
+            # utilizando el tipo de incidencia y los datos del cliente
+            st.success(f"Incidencia de tipo '{tipo_incidencia}' registrada exitosamente.")
 
 #Funciones para seleccion de provincia
 def get_provincias(db):
