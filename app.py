@@ -199,7 +199,8 @@ def mostrar_opciones_incidencia(client_id):
                     "telefono_contacto": client.telefono,
                     "tipo_conexion": "NO CONMUTADA",
                     "tipo_reclamo": incidencia_seleccionada.split(": ")[1],
-                    "permisionario": client.permisionario
+                    "permisionario": client.permisionario,
+                    "estado_incidencia": "Pendiente"
                 }
                 
                 # Mostrar campos automáticos
@@ -209,7 +210,7 @@ def mostrar_opciones_incidencia(client_id):
                 
                 # Campos editables
                 st.write("### Información requerida")
-                item = st.text_input("Item", key=f"item_{client_id}")
+                
                 canal_reclamo = st.selectbox(
                     "Canal de Reclamo", 
                     ["PERSONALIZADO", "TELEFÓNICO", "OFICIO", "CORREO ELECTRÓNICO", "PÁGINA WEB"],

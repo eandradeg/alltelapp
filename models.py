@@ -32,12 +32,12 @@ class TiemPro(Base):
     telefono_contacto = Column(String(20))
     tipo_conexion = Column(String(20))
     canal_reclamo = Column(String(50))
-    tipo_reclamo = Column(String(100))
+    tipo_reclamo = Column(String(200))
     fecha_hora_solucion = Column(DateTime)
     tiempo_resolucion_horas = Column(Numeric)
     descripcion_solucion = Column(Text)
     permisionario = Column(String(200))
-
+    estado_incidencia = Column(String(40))
 
 class Localidad(Base):
     __tablename__ = "dpa"
