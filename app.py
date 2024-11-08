@@ -98,6 +98,23 @@ def update_client_status(client_id, nuevo_estado):
         return False
     finally:
         db.close()
+
+def update_client(client_id, client_data):
+    db = next(get_db())
+    try:
+        client = db.query(Client).filter(Client.id == client_id).first()
+        if client:
+            for key, value in client_data.items():
+                setattr(client, key, value)
+            db.commit()
+            return True
+        return False
+    except Exception as e:
+        db.rollback()
+        st.error(f"Error al actualizar cliente: {str(e)}")
+        return False
+    finally:
+        db.close()
         
 def registrar_tiempro(data_tiempro):
     db = next(get_db())
@@ -194,7 +211,7 @@ def mostrar_opciones_incidencia(client_id):
                 data_tiempro = {
                     "provincia": client.provincia,
                     "mes": meses_espanol[fecha_hora_registro.strftime("%B")],
-                    "fecha_hora_registro": fecha_hora_registro.strftime("%d/%m/%Y %H:%M"),
+                    "fecha_hora_registro": datetime.now(),
                     "nombre_reclamante": f"{client.nombres} {client.apellidos}",
                     "telefono_contacto": client.telefono,
                     "tipo_conexion": "NO CONMUTADA",
@@ -345,8 +362,7 @@ def dashboard(permisionario):
                 with col1:
                     # Botón para editar el cliente
                     if st.button("Editar", key=f"edit_{client.id}"):
-                        st.session_state['cliente_a_editar'] = client.id  # Guardar el ID del cliente en la sesión
-                        st.session_state['navegar_a_gestion'] = True  # Indicador para navegar a Gestión de Clientes
+                        st.session_state[f'edit_mode_{client.id}'] = True
                         st.rerun()
 
                 with col2:
@@ -365,9 +381,78 @@ def dashboard(permisionario):
                             'mostrar_formulario': True
                         }
                         st.rerun()
+                
+                # Mostrar formulario de edición si está en modo edición
+                if st.session_state.get(f'edit_mode_{client.id}', False):
+                    st.write("### Editar Cliente")
+                    with st.form(key=f'edit_form_{client.id}'):
+                        # Obtener la sesión de la base de datos
+                        db = next(get_db())
+                        
+                        # Obtener la lista de provincias
+                        provincias = get_provincias(db)
+                        
+                        # Selector de provincia
+                        provincia_seleccionada = st.selectbox(
+                            "Provincia", 
+                            options=provincias,
+                            index=provincias.index(client.provincia) if client.provincia in provincias else 0,
+                            key=f"provincia_select_{client.id}"
+                        )
+                        
+                        # Obtener cantones para la provincia seleccionada
+                        cantones = get_cantones(db, provincia_seleccionada)
+                        canton_seleccionado = st.selectbox(
+                            "Ciudad",
+                            options=cantones,
+                            index=cantones.index(client.ciudad) if client.ciudad in cantones else 0,
+                            key=f"canton_select_{client.id}"
+                        )
 
-                # Mostrar el formulario de incidencia si está activo
-                if st.session_state.get(f'incidencia_state_{client.id}', {}).get('mostrar_formulario', False):
+                        # Datos editables del cliente
+                        edited_data = {
+                            "permisionario": st.text_input("Permisionario", value=client.permisionario, disabled=True),
+                            "codigo": st.text_input("Código", value=client.codigo),
+                            "nombres": st.text_input("Nombres", value=client.nombres),
+                            "apellidos": st.text_input("Apellidos", value=client.apellidos),
+                            "cliente": st.text_input("Cliente", value=client.cliente),
+                            "cedula_ruc": st.text_input("Cédula/RUC", value=client.cedula_ruc),
+                            "servicio_contratado": st.selectbox(
+                                "Servicio Contratado",
+                                ["INTERNET", "TV", "INTERNET+TV"],
+                                index=["INTERNET", "TV", "INTERNET+TV"].index(client.servicio_contratado)
+                            ),
+                            "plan_contratado": st.text_input("Plan Contratado", value=client.plan_contratado),
+                            "provincia": provincia_seleccionada,
+                            "ciudad": canton_seleccionado,
+                            "direccion": st.text_input("Dirección", value=client.direccion),
+                            "telefono": st.text_input("Teléfono", value=client.telefono),
+                            "correo": st.text_input("Correo", value=client.correo),
+                            "fecha_de_inscripcion": st.date_input(
+                                "Fecha de Inscripción",
+                                value=datetime.strptime(client.fecha_de_inscripcion, '%Y-%m-%d')
+                            ).strftime("%Y-%m-%d"),
+                            "estado": st.selectbox(
+                                "Estado",
+                                ["ACTIVO", "INACTIVO"],
+                                index=["ACTIVO", "INACTIVO"].index(client.estado)
+                            )
+                        }
+
+                        col1, col2 = st.columns(2)
+                        with col1:
+                            if st.form_submit_button("Guardar Cambios"):
+                                if update_client(client.id, edited_data):
+                                    st.success("Cliente actualizado exitosamente!")
+                                    del st.session_state[f'edit_mode_{client.id}']
+                                    st.rerun()
+                        with col2:
+                            if st.form_submit_button("Cancelar"):
+                                del st.session_state[f'edit_mode_{client.id}']
+                                st.rerun()
+
+                if (st.session_state.get(f'incidencia_state_{client.id}', {}).get('mostrar_formulario', False) and 
+                    not st.session_state.get(f'edit_mode_{client.id}', False)):
                     mostrar_opciones_incidencia(client.id)
         else:
             st.info("No se encontraron clientes con el criterio de búsqueda")
@@ -481,16 +566,25 @@ def incidencias(permisionario):
         if not incidencias:
             st.warning("No hay incidencias registradas para mostrar.")
             return
-
+        
         # Métricas generales
         total_incidencias = len(incidencias)
         tiempo_promedio = sum(inc.tiempo_resolucion_horas for inc in incidencias) / total_incidencias if total_incidencias > 0 else 0
+        pendientes = sum(1 for inc in incidencias if inc.estado_incidencia == "Pendiente")
+        finalizadas = sum(1 for inc in incidencias if inc.estado_incidencia == "Finalizado")
 
-        col1, col2 = st.columns(2)
+        col1, col2, col3, col4 = st.columns(4)
         with col1:
             st.metric("Total de Incidencias", total_incidencias)
         with col2:
+            st.metric("Incidencias Finalizadas", finalizadas)
+        with col3:
+            st.metric("Incidencias Pendientes", pendientes)
+        with col4:
             st.metric("Tiempo Promedio de Resolución (horas)", f"{tiempo_promedio:.2f}")
+
+
+        search_term = st.text_input("Buscar por Cliente o Número de Incidencia")
 
         # Crear DataFrame completo con todos los datos
         df_completo = pd.DataFrame([
@@ -507,10 +601,70 @@ def incidencias(permisionario):
                 "Fecha Solución": inc.fecha_hora_solucion,
                 "Tiempo Resolución (horas)": inc.tiempo_resolucion_horas,
                 "Descripción Solución": inc.descripcion_solucion,
-                "Estado": "Resuelto" if inc.fecha_hora_solucion else "Pendiente"
+                "Estado": inc.estado_incidencia
             } for inc in incidencias
         ])
 
+                # Aplicar filtro de búsqueda si se proporciona un término
+        if search_term:
+            # Filtra por nombre de reclamante o por número de incidencia (item)
+            df_completo = df_completo[
+                ((df_completo["Nombre Reclamante"].str.contains(search_term, case=False, na=False)) |
+                (df_completo["Item"].astype(str) == search_term)) &
+                (df_completo["Estado"] == "Pendiente")
+            ]
+
+        # Selección de incidencia y formulario de solución
+        if not df_completo.empty:
+            item_seleccionado = st.selectbox("Selecciona una incidencia por número de Item para actualizar:", df_completo["Item"].unique())
+
+            if item_seleccionado:
+                # Mostrar detalles de la incidencia seleccionada
+                incidencia_seleccionada = df_completo[df_completo["Item"] == item_seleccionado].iloc[0]
+                st.write("### Detalles de la Incidencia")
+                st.write(f"**Cliente:** {incidencia_seleccionada['Nombre Reclamante']}")
+                st.write(f"**Tipo de Reclamo:** {incidencia_seleccionada['Tipo Reclamo']}")
+                st.write(f"**Fecha de Registro:** {incidencia_seleccionada['Fecha Registro']}")
+
+                # Formulario para la solución
+                with st.form(key=f'solucion_form_{item_seleccionado}'):
+                    descripcion_solucion = st.text_area("Descripción de la Solución", 
+                                                      value=incidencia_seleccionada['Descripción Solución'] if pd.notna(incidencia_seleccionada['Descripción Solución']) else "",
+                                                      height=100)
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        submit_solucion = st.form_submit_button("Guardar Solución")
+                    with col2:
+                        submit_finalizar = st.form_submit_button("Finalizar Incidencia")
+
+                    if submit_solucion or submit_finalizar:
+                        # Buscar la incidencia en la base de datos
+                        incidencia = db.query(TiemPro).filter(TiemPro.item == item_seleccionado).first()
+
+                        if incidencia:
+                            # Actualizar la descripción de la solución
+                            incidencia.descripcion_solucion = descripcion_solucion
+                            
+                            if submit_finalizar:
+                                # Actualizar estado y calcular tiempo de resolución
+                                incidencia.estado_incidencia = "Finalizado"
+                                incidencia.fecha_hora_solucion = datetime.now()
+                                tiempo_resolucion = (datetime.now() - incidencia.fecha_hora_registro).total_seconds() / 3600
+                                incidencia.tiempo_resolucion_horas = round(tiempo_resolucion, 2)
+                                mensaje = "Incidencia finalizada y solución guardada con éxito"
+                            else:
+                                mensaje = "Solución guardada con éxito"
+
+                            try:
+                                db.commit()
+                                st.success(mensaje)
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"Error al actualizar la incidencia: {str(e)}")
+                        else:
+                            st.error("No se pudo encontrar la incidencia seleccionada")
+    
+        
         # Agregar filtros
         st.subheader("Filtros")
         col1, col2 = st.columns(2)
