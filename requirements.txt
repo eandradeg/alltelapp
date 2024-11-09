@@ -3,3 +3,4 @@ streamlit==1.39.0
 pandas
 plotly
 psycopg2-binary
+xlsxwriter

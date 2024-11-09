@@ -20,6 +20,7 @@ class Client(Base):
     correo = Column(String, unique=True, index=True)
     fecha_de_inscripcion = Column(String)
     estado = Column(String)
+    ip = Column(String)
 
 class TiemPro(Base):
     __tablename__ = 'tiem_pro'
