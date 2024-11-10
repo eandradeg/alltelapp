@@ -336,7 +336,7 @@ def dashboard(permisionario):
         for client in clients:
             data.append({
                 "ID": client.id,
-                "Cliente" : client.cliente,
+                "Cliente": client.cliente,
                 "Cédula/RUC": client.cedula_ruc,
                 "Email": client.correo,
                 "Teléfono": client.telefono,
@@ -357,6 +357,21 @@ def dashboard(permisionario):
                 st.write(f"**Teléfono:** {client.telefono}")
                 st.write(f"**Estado actual:** {client.estado}")
 
+                # Asegurar que el estado de incidencia existe para este cliente
+                incidencia_key = f'incidencia_state_{client.id}'
+                if incidencia_key not in st.session_state:
+                    st.session_state[incidencia_key] = {
+                        'incidencia_seleccionada': "Selecciona una incidencia",
+                        'mostrar_formulario': False
+                    }
+
+                # Acceder al estado de forma segura
+                client_state = st.session_state[incidencia_key]
+                
+                # Verificar si debemos mostrar el formulario
+                if client_state.get('mostrar_formulario', False):
+                    mostrar_opciones_incidencia(client.id)
+                    
                 # Columnas para botones de acción
                 col1, col2, col3 = st.columns([1, 1, 1])
 
@@ -364,7 +379,10 @@ def dashboard(permisionario):
                     # Botón para editar el cliente
                     if st.button("Editar", key=f"edit_{client.id}"):
                         st.session_state[f'edit_mode_{client.id}'] = True
-                        st.session_state[f'incidencia_state_{client.id}'] = None  # Resetear estado de incidencia
+                        st.session_state[incidencia_key] = {
+                            'incidencia_seleccionada': "Selecciona una incidencia",
+                            'mostrar_formulario': False
+                        }
                         st.rerun()
 
                 with col2:
@@ -377,8 +395,8 @@ def dashboard(permisionario):
 
                 with col3:
                     if st.button("Incidencia", key=f"incidencia_{client.id}"):
-                        # Inicializar o resetear el estado cuando se presiona el botón
-                        st.session_state[f'incidencia_state_{client.id}'] = {
+                        # Actualizar el estado de forma segura
+                        st.session_state[incidencia_key] = {
                             'incidencia_seleccionada': "Selecciona una incidencia",
                             'mostrar_formulario': True
                         }
@@ -438,7 +456,8 @@ def dashboard(permisionario):
                                 "Estado",
                                 ["ACTIVO", "INACTIVO"],
                                 index=["ACTIVO", "INACTIVO"].index(client.estado)
-                            )
+                            ),
+                            "ip": st.text_input("Ip", value=client.ip)
                         }
 
                         col1, col2 = st.columns(2)
@@ -453,12 +472,12 @@ def dashboard(permisionario):
                                 del st.session_state[f'edit_mode_{client.id}']
                                 st.rerun()
 
-                if (st.session_state.get(f'incidencia_state_{client.id}', {}).get('mostrar_formulario', False) and 
+                # Mostrar opciones de incidencia solo si está activado y no en modo edición
+                if (st.session_state[incidencia_key].get('mostrar_formulario', False) and 
                     not st.session_state.get(f'edit_mode_{client.id}', False)):
                     mostrar_opciones_incidencia(client.id)
         else:
             st.info("No se encontraron clientes con el criterio de búsqueda")
-
 #Funciones para seleccion de provincia
 def get_provincias(db):
     db = next(get_db())
