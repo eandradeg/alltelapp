@@ -632,115 +632,114 @@ def search_clients(permisionario):
             db.close()
 
 def incidencias(permisionario):
-        st.header("Estadísticas de Incidencias")
+    st.header("Estadísticas de Incidencias")
 
-        # Obtener datos de incidencias
-        db = next(get_db())
-        incidencias = db.query(TiemPro).filter(TiemPro.permisionario == permisionario).all()
+    # Obtener datos de incidencias
+    db = next(get_db())
+    incidencias = db.query(TiemPro).filter(TiemPro.permisionario == permisionario).all()
 
-        if not incidencias:
-            st.warning("No hay incidencias registradas para mostrar.")
-            return
-        
-        # Métricas generales
-        total_incidencias = len(incidencias)
-        tiempo_promedio = sum(inc.tiempo_resolucion_horas for inc in incidencias) / total_incidencias if total_incidencias > 0 else 0
-        pendientes = sum(1 for inc in incidencias if inc.estado_incidencia == "Pendiente")
-        finalizadas = sum(1 for inc in incidencias if inc.estado_incidencia == "Finalizado")
-
-        col1, col2, col3, col4 = st.columns(4)
-        with col1:
-            st.metric("Total de Incidencias", total_incidencias)
-        with col2:
-            st.metric("Incidencias Finalizadas", finalizadas)
-        with col3:
-            st.metric("Incidencias Pendientes", pendientes)
-        with col4:
-            st.metric("Tiempo Promedio de Resolución (horas)", f"{tiempo_promedio:.2f}")
-
-
-        search_term = st.text_input("Buscar por Cliente o Número de Incidencia")
-
-        # Crear DataFrame completo con todos los datos
-        df_completo = pd.DataFrame([
-            {
-                "Item": inc.item,
-                "Provincia": inc.provincia,
-                "Mes": inc.mes,
-                "Fecha Registro": inc.fecha_hora_registro,
-                "Nombre Reclamante": inc.nombre_reclamante,
-                "Teléfono": inc.telefono_contacto,
-                "Tipo Conexión": inc.tipo_conexion,
-                "Tipo Reclamo": inc.tipo_reclamo,
-                "Canal Reclamo": inc.canal_reclamo,
-                "Fecha Solución": inc.fecha_hora_solucion,
-                "Tiempo Resolución (horas)": inc.tiempo_resolucion_horas,
-                "Descripcion Incidencia":inc.descripcion_incidencia,
-                "Descripción Solución": inc.descripcion_solucion,
-                "Estado": inc.estado_incidencia,
-                
-            } for inc in incidencias
-        ])
-
-                # Aplicar filtro de búsqueda si se proporciona un término
-        if search_term:
-            # Filtra por nombre de reclamante o por número de incidencia (item)
-            df_completo = df_completo[
-                ((df_completo["Nombre Reclamante"].str.contains(search_term, case=False, na=False)) |
-                (df_completo["Item"].astype(str) == search_term)) &
-                (df_completo["Estado"] == "Pendiente")
-            ]
-
-        # Selección de incidencia y formulario de solución
-        if not df_completo.empty:
-            item_seleccionado = st.selectbox("Selecciona una incidencia por número de Item para actualizar:", df_completo["Item"].unique())
-
-            if item_seleccionado:
-                # Mostrar detalles de la incidencia seleccionada
-                incidencia_seleccionada = df_completo[df_completo["Item"] == item_seleccionado].iloc[0]
-                st.write("### Detalles de la Incidencia")
-                st.write(f"**Cliente:** {incidencia_seleccionada['Nombre Reclamante']}")
-                st.write(f"**Tipo de Reclamo:** {incidencia_seleccionada['Tipo Reclamo']}")
-                st.write(f"**Fecha de Registro:** {incidencia_seleccionada['Fecha Registro']}")
-
-                # Formulario para la solución
-                with st.form(key=f'solucion_form_{item_seleccionado}'):
-                    descripcion_solucion = st.text_area("Descripción de la Solución", 
-                                                      value=incidencia_seleccionada['Descripción Solución'] if pd.notna(incidencia_seleccionada['Descripción Solución']) else "",
-                                                      height=100)
-                    col1, col2 = st.columns(2)
-                    with col1:
-                        submit_solucion = st.form_submit_button("Guardar Solución")
-                    with col2:
-                        submit_finalizar = st.form_submit_button("Finalizar Incidencia")
-
-                    if submit_solucion or submit_finalizar:
-                        # Buscar la incidencia en la base de datos
-                        incidencia = db.query(TiemPro).filter(TiemPro.item == item_seleccionado).first()
-
-                        if incidencia:
-                            # Actualizar la descripción de la solución
-                            incidencia.descripcion_solucion = descripcion_solucion
-                            
-                            if submit_finalizar:
-                                # Actualizar estado y calcular tiempo de resolución
-                                incidencia.estado_incidencia = "Finalizado"
-                                incidencia.fecha_hora_solucion = datetime.now()
-                                tiempo_resolucion = (datetime.now() - incidencia.fecha_hora_registro).total_seconds() / 3600
-                                incidencia.tiempo_resolucion_horas = round(tiempo_resolucion, 2)
-                                mensaje = "Incidencia finalizada y solución guardada con éxito"
-                            else:
-                                mensaje = "Solución guardada con éxito"
-
-                            try:
-                                db.commit()
-                                st.success(mensaje)
-                                st.rerun()
-                            except Exception as e:
-                                st.error(f"Error al actualizar la incidencia: {str(e)}")
-                        else:
-                            st.error("No se pudo encontrar la incidencia seleccionada")
+    if not incidencias:
+        st.warning("No hay incidencias registradas para mostrar.")
+        return
     
+    # Métricas generales
+    total_incidencias = len(incidencias)
+    tiempo_promedio = sum(inc.tiempo_resolucion_horas for inc in incidencias) / total_incidencias if total_incidencias > 0 else 0
+    pendientes = sum(1 for inc in incidencias if inc.estado_incidencia == "Pendiente")
+    finalizadas = sum(1 for inc in incidencias if inc.estado_incidencia == "Finalizado")
+
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        st.metric("Total de Incidencias", total_incidencias)
+    with col2:
+        st.metric("Incidencias Finalizadas", finalizadas)
+    with col3:
+        st.metric("Incidencias Pendientes", pendientes)
+    with col4:
+        st.metric("Tiempo Promedio de Resolución (horas)", f"{tiempo_promedio:.2f}")
+
+    search_term = st.text_input("Buscar por Cliente o Número de Incidencia")
+
+    # Crear DataFrame completo con todos los datos
+    df_completo = pd.DataFrame([
+        {
+            "Item": inc.item,
+            "Provincia": inc.provincia,
+            "Mes": inc.mes,
+            "Fecha Registro": inc.fecha_hora_registro,
+            "Nombre Reclamante": inc.nombre_reclamante,
+            "Teléfono": inc.telefono_contacto,
+            "Tipo Conexión": inc.tipo_conexion,
+            "Tipo Reclamo": inc.tipo_reclamo,
+            "Canal Reclamo": inc.canal_reclamo,
+            "Fecha Solución": inc.fecha_hora_solucion,
+            "Tiempo Resolución (horas)": inc.tiempo_resolucion_horas,
+            "Descripcion Incidencia": inc.descripcion_incidencia,
+            "Descripción Solución": inc.descripcion_solucion,
+            "Estado": inc.estado_incidencia,
+        } for inc in incidencias
+    ])
+
+    # Aplicar filtro de búsqueda solo si se proporciona un término
+    if search_term:
+        df_completo = df_completo[
+            ((df_completo["Nombre Reclamante"].str.contains(search_term, case=False, na=False)) |
+             (df_completo["Item"].astype(str) == search_term)) &
+            (df_completo["Estado"] == "Pendiente")
+        ]
+
+    # Mostrar el selector de incidencia solo si hay resultados tras la búsqueda
+    if not df_completo.empty:
+        item_seleccionado = st.selectbox(
+            "Selecciona una incidencia por número de Item para actualizar:",
+            options=[""] + list(df_completo["Item"].unique()),
+            index=0,
+            format_func=lambda x: "Selecciona una incidencia" if x == "" else x
+        )
+
+        if item_seleccionado:
+            incidencia_seleccionada = df_completo[df_completo["Item"] == item_seleccionado].iloc[0]
+            st.write("### Detalles de la Incidencia")
+            st.write(f"**Cliente:** {incidencia_seleccionada['Nombre Reclamante']}")
+            st.write(f"**Tipo de Reclamo:** {incidencia_seleccionada['Tipo Reclamo']}")
+            st.write(f"**Fecha de Registro:** {incidencia_seleccionada['Fecha Registro']}")
+
+            # Formulario para la solución
+            with st.form(key=f'solucion_form_{item_seleccionado}'):
+                descripcion_solucion = st.text_area(
+                    "Descripción de la Solución",
+                    value=incidencia_seleccionada['Descripción Solución'] if pd.notna(incidencia_seleccionada['Descripción Solución']) else "",
+                    height=100
+                )
+                col1, col2 = st.columns(2)
+                with col1:
+                    submit_solucion = st.form_submit_button("Guardar Solución")
+                with col2:
+                    submit_finalizar = st.form_submit_button("Finalizar Incidencia")
+
+                if submit_solucion or submit_finalizar:
+                    incidencia = db.query(TiemPro).filter(TiemPro.item == int(item_seleccionado)).first()
+                    if incidencia:
+                        incidencia.descripcion_solucion = descripcion_solucion
+                        
+                        if submit_finalizar:
+                            incidencia.estado_incidencia = "Finalizado"
+                            incidencia.fecha_hora_solucion = datetime.now()
+                            tiempo_resolucion = (datetime.now() - incidencia.fecha_hora_registro).total_seconds() / 3600
+                            incidencia.tiempo_resolucion_horas = round(tiempo_resolucion, 2)
+                            mensaje = "Incidencia finalizada y solución guardada con éxito"
+                        else:
+                            mensaje = "Solución guardada con éxito"
+
+                        try:
+                            db.commit()
+                            st.success(mensaje)
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Error al actualizar la incidencia: {str(e)}")
+                    else:
+                        st.error("No se pudo encontrar la incidencia seleccionada")
+
         # Aplicar filtros
         df_filtrado = df_completo.copy()
         
