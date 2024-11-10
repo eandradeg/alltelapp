@@ -351,59 +351,50 @@ def dashboard(permisionario):
         # Mostrar detalles del cliente con acciones solo si se realiza una búsqueda
         if filtered_clients:
             for client in filtered_clients:
-                st.write("---")
-                st.write(f"**Cliente:** {client.cliente}")
-                st.write(f"**Email:** {client.correo}")
-                st.write(f"**Teléfono:** {client.telefono}")
-                st.write(f"**Estado actual:** {client.estado}")
-
-                # Asegurar que el estado de incidencia existe para este cliente
-                incidencia_key = f'incidencia_state_{client.id}'
-                if incidencia_key not in st.session_state:
-                    st.session_state[incidencia_key] = {
-                        'incidencia_seleccionada': "Selecciona una incidencia",
-                        'mostrar_formulario': False
+                # Crear una clave única para el estado del cliente actual
+                client_key = f'client_state_{client.id}'
+                
+                # Inicializar el estado del cliente si no existe
+                if client_key not in st.session_state:
+                    st.session_state[client_key] = {
+                        'show_edit': False,
+                        'show_incidencia': False
                     }
 
-                # Acceder al estado de forma segura
-                client_state = st.session_state[incidencia_key]
-                
-                # Verificar si debemos mostrar el formulario
-                if client_state.get('mostrar_formulario', False):
-                    mostrar_opciones_incidencia(client.id)
-                    
-                # Columnas para botones de acción
-                col1, col2, col3 = st.columns([1, 1, 1])
+                # Mostrar información básica del cliente
+                st.write("---")
+                if not st.session_state[client_key]['show_edit'] and not st.session_state[client_key]['show_incidencia']:
+                    st.write(f"**Cliente:** {client.cliente}")
+                    st.write(f"**Email:** {client.correo}")
+                    st.write(f"**Teléfono:** {client.telefono}")
+                    st.write(f"**Estado actual:** {client.estado}")
 
-                with col1:
-                    # Botón para editar el cliente
-                    if st.button("Editar", key=f"edit_{client.id}"):
-                        st.session_state[f'edit_mode_{client.id}'] = True
-                        st.session_state[incidencia_key] = {
-                            'incidencia_seleccionada': "Selecciona una incidencia",
-                            'mostrar_formulario': False
-                        }
-                        st.rerun()
+                    # Columnas para botones de acción
+                    col1, col2, col3 = st.columns([1, 1, 1])
 
-                with col2:
-                    # Botón para cambiar el estado
-                    nuevo_estado = "INACTIVO" if client.estado == "ACTIVO" else "ACTIVO"
-                    if st.button(f"Cambiar a {nuevo_estado}", key=f"change_state_{client.id}"):
-                        if update_client_status(client.id, nuevo_estado):
-                            st.success(f"Estado cambiado a {nuevo_estado} exitosamente!")
+                    with col1:
+                        # Botón para editar el cliente
+                        if st.button("Editar", key=f"edit_{client.id}"):
+                            st.session_state[client_key]['show_edit'] = True
+                            st.session_state[client_key]['show_incidencia'] = False
                             st.rerun()
 
-                with col3:
-                    if st.button("Incidencia", key=f"incidencia_{client.id}"):
-                        # Actualizar el estado de forma segura
-                        st.session_state[incidencia_key] = {
-                            'incidencia_seleccionada': "Selecciona una incidencia",
-                            'mostrar_formulario': True
-                        }
-                        st.rerun()
+                    with col2:
+                        # Botón para cambiar el estado
+                        nuevo_estado = "INACTIVO" if client.estado == "ACTIVO" else "ACTIVO"
+                        if st.button(f"Cambiar a {nuevo_estado}", key=f"change_state_{client.id}"):
+                            if update_client_status(client.id, nuevo_estado):
+                                st.success(f"Estado cambiado a {nuevo_estado} exitosamente!")
+                                st.rerun()
+
+                    with col3:
+                        if st.button("Incidencia", key=f"incidencia_{client.id}"):
+                            st.session_state[client_key]['show_incidencia'] = True
+                            st.session_state[client_key]['show_edit'] = False
+                            st.rerun()
                 
-                # Mostrar formulario de edición si está en modo edición
-                if st.session_state.get(f'edit_mode_{client.id}', False):
+                # Mostrar formulario de edición si está activado
+                if st.session_state[client_key]['show_edit']:
                     st.write("### Editar Cliente")
                     with st.form(key=f'edit_form_{client.id}'):
                         # Obtener la sesión de la base de datos
@@ -465,19 +456,25 @@ def dashboard(permisionario):
                             if st.form_submit_button("Guardar Cambios"):
                                 if update_client(client.id, edited_data):
                                     st.success("Cliente actualizado exitosamente!")
-                                    del st.session_state[f'edit_mode_{client.id}']
+                                    st.session_state[client_key]['show_edit'] = False
                                     st.rerun()
                         with col2:
                             if st.form_submit_button("Cancelar"):
-                                del st.session_state[f'edit_mode_{client.id}']
+                                st.session_state[client_key]['show_edit'] = False
                                 st.rerun()
 
-                # Mostrar opciones de incidencia solo si está activado y no en modo edición
-                if (st.session_state[incidencia_key].get('mostrar_formulario', False) and 
-                    not st.session_state.get(f'edit_mode_{client.id}', False)):
+                # Mostrar formulario de incidencias si está activado
+                if st.session_state[client_key]['show_incidencia']:
+                    st.write("### Registro de Incidencia")
                     mostrar_opciones_incidencia(client.id)
+                    if st.button("Cancelar Incidencia", key=f"cancel_incidencia_{client.id}"):
+                        st.session_state[client_key]['show_incidencia'] = False
+                        st.rerun()
         else:
             st.info("No se encontraron clientes con el criterio de búsqueda")
+
+
+
 #Funciones para seleccion de provincia
 def get_provincias(db):
     db = next(get_db())
