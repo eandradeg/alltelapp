@@ -317,7 +317,7 @@ def dashboard(permisionario):
     # Filtrar clientes según el término de búsqueda
     filtered_clients = []
     if search_term:
-        filtered_clients = [c for c in clients if search_term.lower() in c.nombres.lower() or search_term.lower() in c.cedula_ruc.lower()]
+        filtered_clients = [c for c in clients if search_term.lower() in c.cliente.lower() or search_term.lower() in c.cedula_ruc.lower()]
 
     # Mostrar métricas generales si no hay búsqueda activa
     if not search_term:
@@ -336,8 +336,7 @@ def dashboard(permisionario):
         for client in clients:
             data.append({
                 "ID": client.id,
-                "Nombres": client.nombres,
-                "Apellidos": client.apellidos,
+                "Cliente" : client.cliente,
                 "Cédula/RUC": client.cedula_ruc,
                 "Email": client.correo,
                 "Teléfono": client.telefono,
@@ -353,7 +352,7 @@ def dashboard(permisionario):
         if filtered_clients:
             for client in filtered_clients:
                 st.write("---")
-                st.write(f"**Cliente:** {client.nombres} {client.apellidos}")
+                st.write(f"**Cliente:** {client.cliente}")
                 st.write(f"**Email:** {client.correo}")
                 st.write(f"**Teléfono:** {client.telefono}")
                 st.write(f"**Estado actual:** {client.estado}")
@@ -365,6 +364,7 @@ def dashboard(permisionario):
                     # Botón para editar el cliente
                     if st.button("Editar", key=f"edit_{client.id}"):
                         st.session_state[f'edit_mode_{client.id}'] = True
+                        st.session_state[f'incidencia_state_{client.id}'] = None  # Resetear estado de incidencia
                         st.rerun()
 
                 with col2:
@@ -468,7 +468,13 @@ def get_cantones(db, provincia):
     db = next(get_db())
     return [c[0] for c in db.query(distinct(Localidad.canton)).filter(Localidad.provincia == provincia).order_by(Localidad.canton).all()]
 
-
+def obtener_ultimo_codigo(db, permisionario):
+    ultimo_cliente = db.query(Client).filter(Client.permisionario == permisionario).order_by(Client.codigo.desc()).first()
+    if ultimo_cliente and ultimo_cliente.codigo:  # Verifica que ultimo_cliente no sea None y que codigo no esté vacío
+        # Extraer el número del código y convertir a entero
+        ultimo_numero = int(ultimo_cliente.codigo[-1])  # Tomar solo el último carácter
+        return ultimo_numero + 1  # Incrementar
+    return 1  # Si no hay clientes, empezar desde 1
 
 # Función para la gestión de clientes
 def client_management():
@@ -508,13 +514,35 @@ def client_management():
         # Selección de cantón usando la lista en session_state
         canton_seleccionado = st.selectbox("Ciudad", options=st.session_state.cantones, key="canton")
 
+         # Obtener el nuevo código
+        nuevo_codigo_numero = obtener_ultimo_codigo(db, permisionario)
+        print(nuevo_codigo_numero)
+        nuevo_codigo = f"{nuevo_codigo_numero:04d}"  # Formato 0000X
+        print(nuevo_codigo)
+        # Campo para el nombre del cliente
+        cliente = st.text_input("Cliente", key="cliente_input")
+
+        # Verificar si el campo "Cliente" está lleno
+        if cliente:
+            # Si el cliente está ingresado, deshabilitar los campos de nombres y apellidos
+            nombres = st.text_input("Nombres", disabled=True, key="nombres_input")
+            apellidos = st.text_input("Apellidos", disabled=True, key="apellidos_input")
+        else:
+            # Si el cliente no está ingresado, permitir la edición de nombres y apellidos
+            nombres = st.text_input("Nombres", key="nombres_input_edit")
+            apellidos = st.text_input("Apellidos", key="apellidos_input_edit")
+
+        # Combinar nombres y apellidos para el campo "Cliente" si están vacíos
+        if not cliente:
+            cliente = f"{nombres} {apellidos}".strip()  # Combina nombres y apellidos
+
         # Otros datos del cliente
         client_data = {
             "permisionario": permisionario,
-            "codigo": st.text_input("Código"),
-            "nombres": st.text_input("Nombres"),
-            "apellidos": st.text_input("Apellidos"),
-            "cliente": st.text_input("Cliente"),
+            "codigo": nuevo_codigo,
+            "nombres": nombres,
+            "apellidos": apellidos,
+            "cliente": cliente,  # Asignar el cliente combinado
             "cedula_ruc": st.text_input("Cédula/RUC"),
             "servicio_contratado": st.selectbox("Servicio Contratado", ["INTERNET", "TV", "INTERNET+TV"]),
             "plan_contratado": st.text_input("Plan Contratado"),
@@ -527,6 +555,9 @@ def client_management():
             "estado": st.selectbox("Estado", ["ACTIVO", "INACTIVO"]),
             "ip": st.text_input("Ip")
         }
+        
+        # Campo "Cliente" que se llena automáticamente y se deshabilita
+        st.text_input("Cliente", value=cliente, disabled=True)  # Muestra el cliente combinado como solo lectura
         
         # Botón para guardar el cliente y feedback
         submitted = st.form_submit_button("Guardar Cliente")
@@ -604,7 +635,8 @@ def incidencias(permisionario):
                 "Fecha Solución": inc.fecha_hora_solucion,
                 "Tiempo Resolución (horas)": inc.tiempo_resolucion_horas,
                 "Descripción Solución": inc.descripcion_solucion,
-                "Estado": inc.estado_incidencia
+                "Estado": inc.estado_incidencia,
+                "Ip": inc.estado_incidencia
             } for inc in incidencias
         ])
 
