@@ -140,14 +140,26 @@ meses_espanol = {
 }
 
 def obtener_ultimo_item(db, permisionario):
-    ultimo_item = db.query(func.max(TiemPro.item)).filter(TiemPro.permisionario == permisionario).scalar()
-    if ultimo_item:
-        # Si existe un último ítem, convertir a entero y sumar 1
-        try:
-            return str(int(ultimo_item) + 1)
-        except ValueError:
-            return "1"
-    return "1"
+    try:
+        # Expira todas las entidades para obtener los datos más recientes desde la base de datos
+        db.expire_all()
+        
+        # Obtener el valor máximo de `item` actual para el permisionario
+        ultimo_item = db.query(func.max(TiemPro.item)).filter(TiemPro.permisionario == permisionario).execution_options(populate_existing=True).scalar()
+        
+        # Si no hay ningún ítem, el siguiente debe ser 1
+        if ultimo_item is None:
+            return 1
+        
+        # Si hay un valor máximo, incrementarlo en 1 para el siguiente `item`
+        siguiente_item = int(ultimo_item) + 1
+        print(f"Siguiente ítem para permisionario '{permisionario}': {siguiente_item}")
+        
+        return siguiente_item
+
+    except Exception as e:
+        print(f"Error al obtener el último ítem: {e}")
+        return 1
 
 def mostrar_opciones_incidencia(client_id):
     
@@ -220,7 +232,7 @@ def mostrar_opciones_incidencia(client_id):
                     "provincia": client.provincia,
                     "mes": meses_espanol[fecha_hora_registro.strftime("%B")],
                     "fecha_hora_registro": datetime.now(),
-                    "nombre_reclamante": f"{client.nombres} {client.apellidos}",
+                    "nombre_reclamante": f"{client.cliente}",
                     "telefono_contacto": client.telefono,
                     "tipo_conexion": "NO CONMUTADA",
                     "tipo_reclamo": incidencia_seleccionada.split(": ")[1],
@@ -241,6 +253,7 @@ def mostrar_opciones_incidencia(client_id):
                     ["PERSONALIZADO", "TELEFÓNICO", "OFICIO", "CORREO ELECTRÓNICO", "PÁGINA WEB"],
                     key=f"canal_reclamo_{client_id}"
                 )
+                descripcion_incidencia = st.text_area("Descripción de la Incidencia", key=f"descripcion_{client_id}")
                 fecha_hora_solucion = st.date_input("Fecha Hora Solución", key=f"fecha_solucion_{client_id}")
                 tiempo_resolucion_horas = st.number_input(
                     "Tiempo de Resolución en Horas", 
@@ -248,24 +261,18 @@ def mostrar_opciones_incidencia(client_id):
                     format="%.2f",
                     key=f"tiempo_resolucion_{client_id}"
                 )
-                descripcion_incidencia = st.text_area("Descripción de la Solución", key=f"descripcion_{client_id}")
-
-                # Actualizar data_tiempro con los campos editables
-                data_tiempro.update({
-                    "canal_reclamo": canal_reclamo,
-                    "descripcion_incidencia": descripcion_incidencia,
-                    "fecha_hora_solucion": fecha_hora_solucion,
-                    "tiempo_resolucion_horas": tiempo_resolucion_horas
-                })
-
+                
                 # Botón de envío del formulario
                 submitted = st.form_submit_button("Registrar Incidencia")
                 if submitted:
-                    # Obtener el siguiente número de ítem
+                    # Obtener el siguiente número de `item`
                     db = next(get_db())
-                    nuevo_item = obtener_ultimo_item(db, client.permisionario)
                     
-                    # Actualizar data_tiempro con todos los campos
+                    # Llamar a la función para obtener el último `item` sin usar caché
+                    nuevo_item = obtener_ultimo_item(db, client.permisionario)
+                    print(f"Siguiente número de ítem generado: {nuevo_item}")
+                    
+                    # Actualizar el diccionario `data_tiempro` con los datos del nuevo `item`
                     data_tiempro.update({
                         "item": nuevo_item,
                         "canal_reclamo": canal_reclamo,
@@ -273,39 +280,50 @@ def mostrar_opciones_incidencia(client_id):
                         "fecha_hora_solucion": fecha_hora_solucion,
                         "tiempo_resolucion_horas": tiempo_resolucion_horas
                     })
-
+                    
+                    # Registrar el nuevo `item` en la base de datos
                     if registrar_tiempro(data_tiempro):
-                        # Crear una ventana emergente con el número de ítem
-                        st.markdown(
-                            f"""
-                            <style>
-                                .stAlert {{
-                                    background-color: #0f5132;
-                                    color: white;
-                                    padding: 20px;
-                                    border-radius: 10px;
-                                    text-align: center;
-                                    margin: 10px 0;
-                                }}
-                            </style>
-                            """,
-                            unsafe_allow_html=True
-                        )
-                        
-                        # Mostrar el mensaje de éxito con el número de ítem
-                        st.success(f"""
-                            ✅ Incidencia registrada exitosamente
+                        try:
+                            # Confirmar los cambios en la base de datos
+                            db.commit()
                             
-                            Número de Incidencia: {nuevo_item}
+                            # Crear una ventana emergente con el número de ítem
+                            st.markdown(
+                                f"""
+                                <style>
+                                    .stAlert {{
+                                        background-color: #0f5132;
+                                        color: white;
+                                        padding: 20px;
+                                        border-radius: 10px;
+                                        text-align: center;
+                                        margin: 10px 0;
+                                    }}
+                                </style>
+                                """,
+                                unsafe_allow_html=True
+                            )
                             
-                            """)
+                            # Mostrar el mensaje de éxito con el número de ítem
+                            st.success(f"""
+                                ✅ Incidencia registrada exitosamente
+                                
+                                Número de Incidencia: {nuevo_item}
+                                
+                                """)
+                            
+                            # Limpiar el estado
+                            st.session_state[f'incidencia_state_{client_id}']['incidencia_seleccionada'] = "Selecciona una incidencia"
                         
-                        # Limpiar el estado
-                        st.session_state[f'incidencia_state_{client_id}']['incidencia_seleccionada'] = "Selecciona una incidencia"
+                        except Exception as e:
+                            # Si ocurre un error, hacer rollback de la transacción
+                            db.rollback()
+                            st.error(f"Error al registrar la incidencia: {e}")
                         
                     else:
                         st.error("Error al registrar la incidencia.")
                     
+                    # Cerrar la sesión de la base de datos
                     db.close()
 
             return incidencia_seleccionada
@@ -723,121 +741,14 @@ def incidencias(permisionario):
                         else:
                             st.error("No se pudo encontrar la incidencia seleccionada")
     
-        
-        # Agregar filtros
-        st.subheader("Filtros")
-        col1, col2 = st.columns(2)
-        with col1:
-            # Filtro por mes
-            meses_disponibles = ["Todos"] + sorted(list(df_completo["Mes"].unique()))
-            mes_seleccionado = st.selectbox("Filtrar por Mes", meses_disponibles)
-        
-        with col2:
-            # Filtro por tipo de reclamo
-            tipos_reclamo = ["Todos"] + sorted(list(df_completo["Tipo Reclamo"].unique()))
-            tipo_seleccionado = st.selectbox("Filtrar por Tipo de Reclamo", tipos_reclamo)
-
         # Aplicar filtros
         df_filtrado = df_completo.copy()
-        if mes_seleccionado != "Todos":
-            df_filtrado = df_filtrado[df_filtrado["Mes"] == mes_seleccionado]
-        if tipo_seleccionado != "Todos":
-            df_filtrado = df_filtrado[df_filtrado["Tipo Reclamo"] == tipo_seleccionado]
-
+        
         # Mostrar DataFrame filtrado
         st.subheader("Registro de Incidencias")
         st.dataframe(df_filtrado)
 
-        # Opción para descargar los datos
-        csv = df_filtrado.to_csv(index=False).encode('utf-8')
-        st.download_button(
-            label="Descargar datos como CSV",
-            data=csv,
-            file_name=f'incidencias_{permisionario}.csv',
-            mime='text/csv',
-        )
-
-        # Gráficos
-        st.subheader("Análisis Visual")
-        tab1, tab2, tab3 = st.tabs(["Incidencias por Tipo", "Incidencias por Mes", "Estado de Incidencias"])
         
-        with tab1:
-            if not df_filtrado.empty:
-                tipo_incidencias = df_filtrado['Tipo Reclamo'].value_counts()
-                fig_tipo = px.pie(
-                    values=tipo_incidencias.values,
-                    names=tipo_incidencias.index,
-                    title="Distribución de Incidencias por Tipo"
-                )
-                st.plotly_chart(fig_tipo)
-            else:
-                st.warning("No hay datos para mostrar en el gráfico de incidencias por tipo.")
-
-        with tab2:
-            if not df_filtrado.empty:
-                incidencias_mes = df_filtrado.groupby("Mes").size().reset_index(name='Cantidad')
-                fig_mes = px.bar(
-                    incidencias_mes,
-                    x="Mes",
-                    y="Cantidad",
-                    title="Incidencias por Mes"
-                )
-                st.plotly_chart(fig_mes)
-            else:
-                st.warning("No hay datos para mostrar en el gráfico de incidencias por mes.")
-
-        with tab3:
-            if not df_filtrado.empty:
-                estado_incidencias = df_filtrado['Estado'].value_counts()
-                fig_estado = px.pie(
-                    values=estado_incidencias.values,
-                    names=estado_incidencias.index,
-                    title="Estado de las Incidencias"
-                )
-                st.plotly_chart(fig_estado)
-            else:
-                st.warning("No hay datos para mostrar en el gráfico de estados.")
-
-        # Estadísticas adicionales
-        st.subheader("Estadísticas Detalladas")
-        if not df_filtrado.empty:
-            col1, col2, col3 = st.columns(3)
-            
-            with col1:
-                tiempo_max = df_filtrado['Tiempo Resolución (horas)'].max()
-                st.metric(
-                    "Tiempo Máximo de Resolución",
-                    f"{tiempo_max:.2f} horas"
-                )
-            
-            with col2:
-                tiempo_min = df_filtrado['Tiempo Resolución (horas)'].min()
-                st.metric(
-                    "Tiempo Mínimo de Resolución",
-                    f"{tiempo_min:.2f} horas"
-                )
-            
-            with col3:
-                resueltos = len(df_filtrado[df_filtrado["Estado"] == "Resuelto"])
-                total = len(df_filtrado)
-                tasa_resolucion = (resueltos/total*100) if total > 0 else 0
-                st.metric(
-                    "Tasa de Resolución",
-                    f"{tasa_resolucion:.1f}%"
-                )
-
-            # Tabla de resumen por tipo de reclamo
-            st.subheader("Resumen por Tipo de Reclamo")
-            resumen_tipo = df_filtrado.groupby("Tipo Reclamo").agg({
-                'Tiempo Resolución (horas)': ['count', 'mean', 'min', 'max']
-            }).round(2)
-            resumen_tipo.columns = ['Cantidad', 'Tiempo Promedio', 'Tiempo Mínimo', 'Tiempo Máximo']
-            st.dataframe(resumen_tipo)
-
-        else:
-            st.warning("No hay datos disponibles para mostrar estadísticas detalladas.")
-
-        db.close()
 
 def reporteria(permisionario):
     st.header("Reportería")
