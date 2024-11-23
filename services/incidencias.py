@@ -123,7 +123,7 @@ def mostrar_opciones_incidencia(client_id):
                     data_tiempro = {
                         "provincia": client.provincia,
                         "mes": meses_espanol[fecha_hora_registro.strftime("%B")],
-                        "fecha_hora_registro": datetime.now(zona_horaria),
+                        "fecha_hora_registro": fecha_hora_registro,
                         "nombre_reclamante": f"{client.cliente}",
                         "telefono_contacto": client.telefono,
                         "tipo_conexion": "NO CONMUTADA",
@@ -131,6 +131,9 @@ def mostrar_opciones_incidencia(client_id):
                         "permisionario": client.permisionario,
                         "estado_incidencia": "Pendiente"
                     }
+                    
+                    # Imprimir la fecha y hora de registro para depuración
+                    st.write(f"**Fecha y Hora de Registro (para depuración):** {data_tiempro['fecha_hora_registro']}")
                     
                     # Mostrar campos automáticos
                     st.write("### Información del cliente")
@@ -316,8 +319,18 @@ def incidencias(permisionario):
                                 zona_horaria = pytz.timezone('America/Guayaquil')
                                 incidencia.estado_incidencia = "Finalizado"
                                 incidencia.fecha_hora_solucion = datetime.now(zona_horaria)
-                                tiempo_resolucion = (datetime.now(zona_horaria) - incidencia.fecha_hora_registro).total_seconds() / 3600
-                                incidencia.tiempo_resolucion_horas = round(tiempo_resolucion, 2)
+                                 # Verificar que fecha_hora_registro no sea None
+                                if incidencia.fecha_hora_registro:
+                                    # Asegurarse de que fecha_hora_registro tenga la zona horaria
+                                    if incidencia.fecha_hora_registro.tzinfo is None:
+                                        incidencia.fecha_hora_registro = zona_horaria.localize(incidencia.fecha_hora_registro)
+                                    
+                                    tiempo_resolucion = (datetime.now(zona_horaria) - incidencia.fecha_hora_registro).total_seconds() / 3600
+                                    incidencia.tiempo_resolucion_horas = round(tiempo_resolucion, 2)
+                                else:
+                                    st.error("Error: La fecha de registro de la incidencia es inválida.")
+                                    return
+                                
                                 mensaje = "Incidencia finalizada y solución guardada con éxito"
                             else:
                                 mensaje = "Solución guardada con éxito"
