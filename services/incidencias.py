@@ -119,11 +119,15 @@ def mostrar_opciones_incidencia(client_id):
                     
                     zona_horaria = pytz.timezone('America/Guayaquil')
                     fecha_hora_registro = datetime.now(zona_horaria)
+                    
+                     # Convertir a UTC antes de guardar en la base de datos
+                    fecha_hora_registro_utc = fecha_hora_registro.astimezone(pytz.utc)
+                    
                     # Campos que se rellenan automáticamente
                     data_tiempro = {
                         "provincia": client.provincia,
                         "mes": meses_espanol[fecha_hora_registro.strftime("%B")],
-                        "fecha_hora_registro": fecha_hora_registro,
+                        "fecha_hora_registro": fecha_hora_registro_utc,
                         "nombre_reclamante": f"{client.cliente}",
                         "telefono_contacto": client.telefono,
                         "tipo_conexion": "NO CONMUTADA",
