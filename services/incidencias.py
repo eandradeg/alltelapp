@@ -123,7 +123,7 @@ def mostrar_opciones_incidencia(client_id):
                     data_tiempro = {
                         "provincia": client.provincia,
                         "mes": meses_espanol[fecha_hora_registro.strftime("%B")],
-                        "fecha_hora_registro": datetime.now(),
+                        "fecha_hora_registro": datetime.now(zona_horaria),
                         "nombre_reclamante": f"{client.cliente}",
                         "telefono_contacto": client.telefono,
                         "tipo_conexion": "NO CONMUTADA",
@@ -316,7 +316,7 @@ def incidencias(permisionario):
                                 zona_horaria = pytz.timezone('America/Guayaquil')
                                 incidencia.estado_incidencia = "Finalizado"
                                 incidencia.fecha_hora_solucion = datetime.now(zona_horaria)
-                                tiempo_resolucion = (datetime.now() - incidencia.fecha_hora_registro).total_seconds() / 3600
+                                tiempo_resolucion = (datetime.now(zona_horaria) - incidencia.fecha_hora_registro).total_seconds() / 3600
                                 incidencia.tiempo_resolucion_horas = round(tiempo_resolucion, 2)
                                 mensaje = "Incidencia finalizada y solución guardada con éxito"
                             else:
