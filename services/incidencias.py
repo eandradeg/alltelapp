@@ -118,7 +118,7 @@ def mostrar_opciones_incidencia(client_id):
                 with st.form(key=f'tiempro_form_{client_id}'):
                     
                     zona_horaria = pytz.timezone('America/Guayaquil')
-                    fecha_hora_registro = datetime.now(zona_horaria)
+                    fecha_hora_registro = datetime.now(zona_horaria).replace(tzinfo=None)
                     
                                        
                     # Campos que se rellenan automáticamente
