@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, Text, Numeric, TIMESTAMP
+from sqlalchemy import Column, Integer, String, DateTime, Text, Numeric
 from sqlalchemy.orm import relationship
 from database import Base
 
@@ -28,7 +28,7 @@ class TiemPro(Base):
     item = Column(String(50))
     provincia = Column(String(100))
     mes = Column(String(20))
-    fecha_hora_registro = Column(TIMESTAMP)
+    fecha_hora_registro = Column(DateTime)
     nombre_reclamante = Column(String(200))
     telefono_contacto = Column(String(20))
     tipo_conexion = Column(String(20))
