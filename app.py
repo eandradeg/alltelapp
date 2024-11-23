@@ -8,7 +8,7 @@ from services.estadisticas import estadisticas
 from services.reporteria import reporteria
 from services.auth import login_form, logout
 from services.incidencias import incidencias, mostrar_opciones_incidencia
-from services.relacion_cliente import enviar_encuesta
+#from services.relacion_cliente import enviar_encuesta
 
 # Configuración de la página (debe ser la primera instrucción de Streamlit)
 st.set_page_config(page_title="Sistema de Gestión de Clientes", layout="wide")
@@ -398,7 +398,7 @@ def main():
         permisionario = st.session_state.get('permisionario')
         
         st.sidebar.title("Menú")
-        menu = st.sidebar.selectbox("Menú", ["Servicio al Cliente", "Gestión de Clientes", "Soporte", "Enviar Encuestas", "Reporteria", "Estadisticas"])
+        menu = st.sidebar.selectbox("Menú", ["Servicio al Cliente", "Gestión de Clientes", "Soporte", "Reporteria", "Estadisticas"])
         
         if st.sidebar.button("Cerrar Sesión"):
             logout()
@@ -409,8 +409,8 @@ def main():
             client_management()
         elif menu == "Soporte":
             incidencias(permisionario)
-        elif menu == "Enviar Encuestas":
-            enviar_encuesta()
+        #elif menu == "Enviar Encuestas":
+            #enviar_encuesta()
         elif menu ==menu == "Reporteria":
             reporteria(permisionario)
         elif menu ==menu == "Estadisticas":

@@ -438,3 +438,13 @@ Time: 11:49
 Phone Number: +593998435150
 Message: ¡Hola! Te invitamos a llenar nuestra encuesta en el siguiente enlace: https://docs.google.com/forms/d/e/1FAIpQLSeJPEQ_FHJWYCAHpiGIobbGXBcnRpQOAq-OzR2Wf0zIZIkpBw/viewform?usp=sf_link
 --------------------
+Date: 22/11/2024
+Time: 19:50
+Phone Number: +593998174225
+Message: ¡Hola! Te invitamos a llenar nuestra encuesta en el siguiente enlace: https://docs.google.com/forms/d/1Bj0ALE6lgDo0jK9GGgfvcuvNz9Egw9CB6k62Tgx6NnQ/prefill
+--------------------
+Date: 22/11/2024
+Time: 19:51
+Phone Number: +593998435150
+Message: ¡Hola! Te invitamos a llenar nuestra encuesta en el siguiente enlace: https://docs.google.com/forms/d/1Bj0ALE6lgDo0jK9GGgfvcuvNz9Egw9CB6k62Tgx6NnQ/prefill
+--------------------
