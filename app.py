@@ -8,10 +8,10 @@ from services.estadisticas import estadisticas
 from services.reporteria import reporteria
 from services.auth import login_form, logout
 from services.incidencias import incidencias, mostrar_opciones_incidencia
+from services.relacion_cliente import enviar_encuesta
 
 # Configuración de la página (debe ser la primera instrucción de Streamlit)
 st.set_page_config(page_title="Sistema de Gestión de Clientes", layout="wide")
-
 
 # Función para crear un cliente
 def create_client(client_data):
@@ -23,6 +23,7 @@ def create_client(client_data):
         db.refresh(db_client)
         return True
     except Exception as e:
+        
         db.rollback()
         st.error(f"Error al crear cliente: {str(e)}")
         return False
@@ -370,6 +371,7 @@ def search_clients(permisionario):
                 (Client.permisionario == permisionario) &
                 ((Client.nombres.ilike(f"%{search_term}%")) |
                  (Client.correo.ilike(f"%{search_term}%")))
+                
             ).all()
             if results:
                 for client in results:
@@ -385,8 +387,6 @@ def search_clients(permisionario):
         finally:
             db.close()
 
-
-
 # Función principal
 def main():
     if 'logged_in' not in st.session_state:
@@ -396,8 +396,9 @@ def main():
         login_form()
     else:
         permisionario = st.session_state.get('permisionario')
+        
         st.sidebar.title("Menú")
-        menu = st.sidebar.selectbox("Menú", ["Servicio al Cliente", "Gestión de Clientes", "Soporte", "Reporteria", "Estadisticas"])
+        menu = st.sidebar.selectbox("Menú", ["Servicio al Cliente", "Gestión de Clientes", "Soporte", "Enviar Encuestas", "Reporteria", "Estadisticas"])
         
         if st.sidebar.button("Cerrar Sesión"):
             logout()
@@ -408,6 +409,8 @@ def main():
             client_management()
         elif menu == "Soporte":
             incidencias(permisionario)
+        elif menu == "Enviar Encuestas":
+            enviar_encuesta()
         elif menu ==menu == "Reporteria":
             reporteria(permisionario)
         elif menu ==menu == "Estadisticas":
