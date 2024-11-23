@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import pytz
 from datetime import datetime
 from database import get_db
 from models import TiemPro, Client
@@ -116,7 +117,8 @@ def mostrar_opciones_incidencia(client_id):
                 
                 with st.form(key=f'tiempro_form_{client_id}'):
                     
-                    fecha_hora_registro = datetime.now()
+                    zona_horaria = pytz.timezone('America/Guayaquil')
+                    fecha_hora_registro = datetime.now(zona_horaria)
                     # Campos que se rellenan automáticamente
                     data_tiempro = {
                         "provincia": client.provincia,
@@ -311,8 +313,9 @@ def incidencias(permisionario):
                             incidencia.descripcion_solucion = descripcion_solucion
                             
                             if submit_finalizar:
+                                zona_horaria = pytz.timezone('America/Guayaquil')
                                 incidencia.estado_incidencia = "Finalizado"
-                                incidencia.fecha_hora_solucion = datetime.now()
+                                incidencia.fecha_hora_solucion = datetime.now(zona_horaria)
                                 tiempo_resolucion = (datetime.now() - incidencia.fecha_hora_registro).total_seconds() / 3600
                                 incidencia.tiempo_resolucion_horas = round(tiempo_resolucion, 2)
                                 mensaje = "Incidencia finalizada y solución guardada con éxito"
