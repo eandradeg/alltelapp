@@ -134,9 +134,7 @@ def mostrar_opciones_incidencia(client_id):
                         "estado_incidencia": "Pendiente"
                     }
                     
-                    # Imprimir la fecha y hora de registro para depuración
-                    st.write(f"**Fecha y Hora de Registro (para depuración):** {data_tiempro['fecha_hora_registro']}")
-                    
+         
                     # Mostrar campos automáticos
                     st.write("### Información del cliente")
                     for key, value in data_tiempro.items():
@@ -316,33 +314,30 @@ def incidencias(permisionario):
                         incidencia = db.query(TiemPro).filter(TiemPro.item == int(item_seleccionado)).first()
                         if incidencia:
                             incidencia.descripcion_solucion = descripcion_solucion
+                        
+                        if submit_finalizar:
+                            incidencia.estado_incidencia = "Finalizado"
                             
-                            if submit_finalizar:
-                                zona_horaria = pytz.timezone('America/Guayaquil')
-                                incidencia.estado_incidencia = "Finalizado"
-                                incidencia.fecha_hora_solucion = datetime.now(zona_horaria)
-                                 # Verificar que fecha_hora_registro no sea None
-                                if incidencia.fecha_hora_registro:
-                                    # Asegurarse de que fecha_hora_registro tenga la zona horaria
-                                    if incidencia.fecha_hora_registro.tzinfo is None:
-                                        incidencia.fecha_hora_registro = zona_horaria.localize(incidencia.fecha_hora_registro)
-                                    
-                                    tiempo_resolucion = (datetime.now(zona_horaria) - incidencia.fecha_hora_registro).total_seconds() / 3600
-                                    incidencia.tiempo_resolucion_horas = round(tiempo_resolucion, 2)
-                                else:
-                                    st.error("Error: La fecha de registro de la incidencia es inválida.")
-                                    return
-                                
-                                mensaje = "Incidencia finalizada y solución guardada con éxito"
-                            else:
-                                mensaje = "Solución guardada con éxito"
+                            zona_horaria = pytz.timezone('America/Guayaquil')
+                            fecha_hora_solucion = datetime.now(zona_horaria).replace(tzinfo=None)
+                            # Obtener la fecha y hora actual para la solución
+                            incidencia.fecha_hora_solucion = fecha_hora_solucion  # Guardar la fecha y hora de solución
+                            
+                            if incidencia.fecha_hora_registro.tzinfo is None:
+                                incidencia.fecha_hora_registro = zona_horaria.localize(incidencia.fecha_hora_registro)
+                            
+                            tiempo_resolucion = (datetime.now(zona_horaria) - incidencia.fecha_hora_registro).total_seconds() / 3600
+                            incidencia.tiempo_resolucion_horas = round(tiempo_resolucion, 2)
 
+
+                            # Guardar en la base de datos
                             try:
-                                db.commit()
-                                st.success(mensaje)
-                                st.rerun()
+                                db.commit()  # Asegúrate de que se guarden los cambios
+                                st.success("Incidencia finalizada y solución guardada con éxito.")
                             except Exception as e:
-                                st.error(f"Error al actualizar la incidencia: {str(e)}")
+                                db.rollback()
+                                st.error(f"Error al finalizar la incidencia: {str(e)}")    
+                            
                         else:
                             st.error("No se pudo encontrar la incidencia seleccionada")
 
