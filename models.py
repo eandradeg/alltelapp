@@ -20,6 +20,7 @@ class Client(Base):
     correo = Column(String, unique=True, index=True)
     fecha_de_inscripcion = Column(String)
     estado = Column(String)
+    ip = Column(String)
 
 class TiemPro(Base):
     __tablename__ = 'tiem_pro'
@@ -36,6 +37,7 @@ class TiemPro(Base):
     fecha_hora_solucion = Column(DateTime)
     tiempo_resolucion_horas = Column(Numeric)
     descripcion_solucion = Column(Text)
+    descripcion_incidencia = Column(Text)
     permisionario = Column(String(200))
     estado_incidencia = Column(String(40))
 
