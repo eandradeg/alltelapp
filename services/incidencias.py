@@ -324,9 +324,9 @@ def incidencias(permisionario):
                             incidencia.fecha_hora_solucion = fecha_hora_solucion  # Guardar la fecha y hora de solución
                             
                             if incidencia.fecha_hora_registro.tzinfo is None:
-                                incidencia.fecha_hora_registro = zona_horaria.localize(incidencia.fecha_hora_registro)
+                                fecha_hora_registro = zona_horaria.localize(incidencia.fecha_hora_registro)
                             
-                            tiempo_resolucion = (datetime.now(zona_horaria) - incidencia.fecha_hora_registro).total_seconds() / 3600
+                            tiempo_resolucion = (datetime.now(zona_horaria) - fecha_hora_registro).total_seconds() / 3600
                             incidencia.tiempo_resolucion_horas = round(tiempo_resolucion, 2)
 
 
